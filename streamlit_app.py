@@ -1,17 +1,15 @@
-# PraisePlay AI - Mahomes Mention Tracker (Live Mic + Audio File)
+# PraisePlay AI - Multi-Player Sports Highlight Tracker (Video Uploads)
 
 # Requirements:
 # - Python 3.9+
-# - pip install openai-whisper nltk torch streamlit sounddevice numpy scipy
+# - pip install openai-whisper nltk torch streamlit moviepy
 
 import whisper
 import streamlit as st
 import os
 import re
-import sounddevice as sd
-import numpy as np
 import tempfile
-from scipy.io.wavfile import write
+from moviepy.editor import VideoFileClip
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 
@@ -28,10 +26,14 @@ model = load_model()
 sia = SentimentIntensityAnalyzer()
 
 # UI Setup
-st.title("🏈 PraisePlay AI: Mahomes Mention Tracker")
-st.markdown("Choose an input method to analyze mentions of Patrick Mahomes:")
+st.title("🏈 PraisePlay AI: Sports Highlight Commentary Tracker")
+st.markdown("Upload an NFL or sports video highlight and track how often any player's name is mentioned positively.")
 
-input_mode = st.radio("Select Input Mode", ["Upload Audio File", "Live Microphone"])
+# Player input
+player_name = st.text_input("Enter Player's Name to Track (e.g., Patrick Mahomes)", "Patrick Mahomes")
+
+# Video upload
+video_file = st.file_uploader("Upload a video clip (MP4/MOV)", type=["mp4", "mov"])
 
 # State variables
 if "total_mentions" not in st.session_state:
@@ -39,8 +41,8 @@ if "total_mentions" not in st.session_state:
 if "positive_mentions" not in st.session_state:
     st.session_state.positive_mentions = 0
 
-def analyze_transcript(transcript):
-    pattern = re.compile(r"\b(Mahomes|Patrick Mahomes|Chiefs QB)\b", re.IGNORECASE)
+def analyze_transcript(transcript, player):
+    pattern = re.compile(rf"\b({re.escape(player)})\b", re.IGNORECASE)
     mentions = pattern.finditer(transcript)
 
     for match in mentions:
@@ -53,50 +55,33 @@ def analyze_transcript(transcript):
 
     st.success(f"📊 Total Mentions: {st.session_state.total_mentions} | Positive Mentions: {st.session_state.positive_mentions}")
 
-# --- Option 1: Upload Audio File ---
-if input_mode == "Upload Audio File":
-    audio_file = st.file_uploader("Upload an MP3 or WAV file", type=["mp3", "wav"])
-    if audio_file:
-        st.audio(audio_file)
-        st.info("Transcribing uploaded audio...")
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-            f.write(audio_file.read())
-            result = model.transcribe(f.name)
-            transcript = result["text"]
-            os.remove(f.name)
+if video_file:
+    st.video(video_file)
+    st.info("Extracting audio and analyzing commentary...")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_video:
+        tmp_video.write(video_file.read())
+        tmp_video_path = tmp_video.name
+
+    audio_path = tmp_video_path.replace(".mp4", ".wav")
+    try:
+        clip = VideoFileClip(tmp_video_path)
+        clip.audio.write_audiofile(audio_path, verbose=False, logger=None)
+
+        result = model.transcribe(audio_path)
+        transcript = result["text"]
 
         st.subheader("Transcript")
         st.write(transcript)
 
-        st.subheader("Analysis")
-        analyze_transcript(transcript)
+        st.subheader(f"Analysis for: {player_name}")
+        analyze_transcript(transcript, player_name)
 
-# --- Option 2: Live Microphone Listening ---
-else:
-    DURATION = st.slider("Recording Chunk Duration (seconds)", 5, 30, 10)
-    start_button = st.button("🎙️ Start Listening")
-    stop_button = st.button("🛑 Stop Listening")
+    except Exception as e:
+        st.error(f"Error processing video: {e}")
 
-    def record_and_process():
-        st.info("Recording... Speak near your microphone.")
-        while True:
-            audio_data = sd.rec(int(DURATION * 44100), samplerate=44100, channels=1, dtype='int16')
-            sd.wait()
+    finally:
+        if os.path.exists(tmp_video_path):
+            os.remove(tmp_video_path)
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
-                write(tmp_wav.name, 44100, audio_data)
-                result = model.transcribe(tmp_wav.name)
-                transcript = result["text"]
-                os.remove(tmp_wav.name)
-
-            st.subheader("Transcript (Live Chunk)")
-            st.write(transcript)
-
-            st.subheader("Analysis")
-            analyze_transcript(transcript)
-
-    if start_button:
-        record_and_process()
-
-    if stop_button:
-        st.warning("Stopped listening. Reload to restart.")
