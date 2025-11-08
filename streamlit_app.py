@@ -1,15 +1,14 @@
-# PraisePlay AI - Multi-Player Sports Highlight Tracker (Video Uploads)
+# PraisePlay AI - Sports Commentary Tracker (Streamlit Cloud Version)
 
 # Requirements:
 # - Python 3.9+
-# - pip install openai-whisper nltk torch streamlit moviepy
+# - pip install openai-whisper nltk torch streamlit
 
 import whisper
 import streamlit as st
 import os
 import re
 import tempfile
-from moviepy.editor import VideoFileClip
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 
@@ -26,14 +25,25 @@ model = load_model()
 sia = SentimentIntensityAnalyzer()
 
 # UI Setup
-st.title("🏈 PraisePlay AI: Sports Highlight Commentary Tracker")
-st.markdown("Upload an NFL or sports video highlight and track how often any player's name is mentioned positively.")
+st.set_page_config(page_title="PraisePlay AI", page_icon="🏈", layout="centered")
+st.markdown("""
+    <style>
+        .main {background-color: #0B0C10; color: #C5C6C7; font-family: 'Segoe UI', sans-serif;}
+        .css-18e3th9 {background-color: #1F2833; color: #C5C6C7;}
+        .css-1d391kg {background-color: #1F2833;}
+        .block-container {padding-top: 2rem; padding-bottom: 2rem;}
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🏈 PraisePlay AI")
+st.subheader("Analyze Sports Commentary for Positive Player Mentions")
+st.markdown("Upload audio clips (MP3/WAV) from sports broadcasts to detect and track praise for your favorite players.")
 
 # Player input
-player_name = st.text_input("Enter Player's Name to Track (e.g., Patrick Mahomes)", "Patrick Mahomes")
+player_name = st.text_input("🔍 Enter Player's Name to Track", "Patrick Mahomes")
 
-# Video upload
-video_file = st.file_uploader("Upload a video clip (MP4/MOV)", type=["mp4", "mov"])
+# Audio upload
+audio_file = st.file_uploader("🎧 Upload an Audio Clip (MP3/WAV)", type=["mp3", "wav"])
 
 # State variables
 if "total_mentions" not in st.session_state:
@@ -42,6 +52,8 @@ if "positive_mentions" not in st.session_state:
     st.session_state.positive_mentions = 0
 
 def analyze_transcript(transcript, player):
+    st.markdown("---")
+    st.subheader(f"📋 Transcript Snippets mentioning '{player}'")
     pattern = re.compile(rf"\b({re.escape(player)})\b", re.IGNORECASE)
     mentions = pattern.finditer(transcript)
 
@@ -51,37 +63,21 @@ def analyze_transcript(transcript, player):
         sentiment = sia.polarity_scores(snippet)
         if sentiment['compound'] > 0.3:
             st.session_state.positive_mentions += 1
-        st.markdown(f"**Snippet:** {snippet}\n\n**Sentiment:** {'Positive' if sentiment['compound'] > 0.3 else 'Neutral/Negative'}")
+        st.markdown(f"**🎙️ Snippet:** {snippet}\n\n**📈 Sentiment:** {'Positive' if sentiment['compound'] > 0.3 else 'Neutral/Negative'}")
 
-    st.success(f"📊 Total Mentions: {st.session_state.total_mentions} | Positive Mentions: {st.session_state.positive_mentions}")
+    st.markdown("---")
+    st.success(f"🏆 Total Mentions of '{player}': {st.session_state.total_mentions} | Positive Mentions: {st.session_state.positive_mentions}")
 
-if video_file:
-    st.video(video_file)
-    st.info("Extracting audio and analyzing commentary...")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_video:
-        tmp_video.write(video_file.read())
-        tmp_video_path = tmp_video.name
-
-    audio_path = tmp_video_path.replace(".mp4", ".wav")
-    try:
-        clip = VideoFileClip(tmp_video_path)
-        clip.audio.write_audiofile(audio_path, verbose=False, logger=None)
-
-        result = model.transcribe(audio_path)
+if audio_file:
+    st.audio(audio_file)
+    st.info("Transcribing audio... please wait.")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+        f.write(audio_file.read())
+        result = model.transcribe(f.name)
         transcript = result["text"]
+        os.remove(f.name)
 
-        st.subheader("Transcript")
-        st.write(transcript)
+    st.subheader("📝 Transcript")
+    st.write(transcript)
 
-        st.subheader(f"Analysis for: {player_name}")
-        analyze_transcript(transcript, player_name)
-
-    except Exception as e:
-        st.error(f"Error processing video: {e}")
-
-    finally:
-        if os.path.exists(tmp_video_path):
-            os.remove(tmp_video_path)
-        if os.path.exists(audio_path):
-            os.remove(audio_path)
-
+    analyze_transcript(transcript, player_name)
