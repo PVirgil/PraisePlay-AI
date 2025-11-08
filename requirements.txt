@@ -1,5 +1,6 @@
-transformers>=4.28.0
-torch
 streamlit
 openai-whisper
 nltk
+torch
+moviepy
+imageio-ffmpeg
