@@ -1,4 +1,4 @@
-# PraisePlay AI - Enhanced Summary and Sentiment Tracker (Groq API)
+# PraisePlay AI - Simplified Game Summary + Smart Mentions (Groq API)
 
 # Requirements:
 # - Python 3.9+
@@ -83,11 +83,20 @@ def transcribe_via_groq(file_path):
     response.raise_for_status()
     return response.text
 
-def generate_game_summary(text):
-    sentences = re.split(r'(?<=[.!?]) +', text.strip())
-    highlights = [s for s in sentences if any(k in s.lower() for k in highlight_keywords)]
-    best = sorted(highlights, key=lambda s: sia.polarity_scores(s)['compound'], reverse=True)
-    return ' '.join(best[:5]) if best else 'No highlight-worthy moments detected.'
+def generate_simple_summary(text):
+    score = 0
+    touchdowns = len(re.findall(r"touchdown", text, re.IGNORECASE))
+    field_goals = len(re.findall(r"field goal", text, re.IGNORECASE))
+    interceptions = len(re.findall(r"interception", text, re.IGNORECASE))
+    key_plays = touchdowns + field_goals + interceptions
+
+    if key_plays == 0:
+        return "The game was relatively quiet with no major plays highlighted."
+    else:
+        return (
+            f"The game featured {touchdowns} touchdowns, {field_goals} field goals, and {interceptions} interceptions. "
+            "It was an active matchup with several highlight moments."
+        )
 
 if audio_file:
     st.audio(audio_file)
@@ -100,8 +109,7 @@ if audio_file:
         os.remove(f.name)
 
     st.subheader("📝 Game Summary")
-    summary = generate_game_summary(transcript)
+    summary = generate_simple_summary(transcript)
     st.write(summary)
 
     analyze_transcript(transcript, player_name)
-
