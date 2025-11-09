@@ -1,4 +1,4 @@
-# PraisePlay AI - Sports Commentary Tracker (Using Groq STT API)
+# PraisePlay AI - Sports Commentary Tracker (Groq API Only)
 
 # Requirements:
 # - Python 3.9+
@@ -74,7 +74,8 @@ def transcribe_via_groq(file_path):
 if audio_file:
     st.audio(audio_file)
     st.info("Transcribing audio via Groq API... please wait.")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio_file.type.split('/')[-1]}") as f:
+    file_extension = audio_file.name.split(".")[-1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as f:
         f.write(audio_file.read())
         f.flush()
         transcript = transcribe_via_groq(f.name)
@@ -84,4 +85,5 @@ if audio_file:
     st.write(transcript)
 
     analyze_transcript(transcript, player_name)
+
 
