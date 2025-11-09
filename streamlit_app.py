@@ -1,4 +1,4 @@
-# PraisePlay AI - In-Depth Game Summary + Smart Mentions (Groq API)
+# PraisePlay AI - In-Depth Summary + Robust Groq API Error Handling
 
 # Requirements:
 # - Python 3.9+
@@ -80,7 +80,11 @@ def transcribe_via_groq(file_path):
     files = {"file": open(file_path, "rb")}
     data = {"model": "whisper-large-v3-turbo", "response_format": "text"}
     response = requests.post(url, headers=headers, files=files, data=data)
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        st.error(f"Groq API Error {response.status_code}: {response.text}")
+        return None
     return response.text
 
 def generate_detailed_summary(text):
@@ -116,8 +120,9 @@ if audio_file:
         transcript = transcribe_via_groq(f.name)
         os.remove(f.name)
 
-    st.subheader("📝 Game Summary")
-    summary = generate_detailed_summary(transcript)
-    st.write(summary)
+    if transcript:
+        st.subheader("📝 Game Summary")
+        summary = generate_detailed_summary(transcript)
+        st.write(summary)
 
-    analyze_transcript(transcript, player_name)
+        analyze_transcript(transcript, player_name)
