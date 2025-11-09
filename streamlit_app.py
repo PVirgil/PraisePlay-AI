@@ -1,14 +1,15 @@
-# PraisePlay AI - Sports Commentary Tracker (Streamlit Cloud Version)
+# PraisePlay AI - Sports Commentary Tracker (Streamlit Cloud Version - FFmpeg-Free)
 
 # Requirements:
 # - Python 3.9+
-# - pip install openai-whisper nltk torch streamlit
+# - pip install openai-whisper nltk torch streamlit soundfile
 
 import whisper
 import streamlit as st
 import os
 import re
 import tempfile
+import soundfile as sf
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 
@@ -43,7 +44,7 @@ st.markdown("Upload audio clips (MP3/WAV) from sports broadcasts to detect and t
 player_name = st.text_input("🔍 Enter Player's Name to Track", "Patrick Mahomes")
 
 # Audio upload
-audio_file = st.file_uploader("🎧 Upload an Audio Clip (MP3/WAV)", type=["mp3", "wav"])
+audio_file = st.file_uploader("🎧 Upload an Audio Clip (WAV only)", type=["wav"])
 
 # State variables
 if "total_mentions" not in st.session_state:
@@ -73,6 +74,7 @@ if audio_file:
     st.info("Transcribing audio... please wait.")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         f.write(audio_file.read())
+        f.flush()
         result = model.transcribe(f.name)
         transcript = result["text"]
         os.remove(f.name)
