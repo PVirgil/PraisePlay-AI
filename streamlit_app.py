@@ -1,4 +1,4 @@
-# PraisePlay AI - Sports Commentary Tracker (Groq API + Summary View Without OpenAI)
+# PraisePlay AI - Enhanced Summary and Sentiment Tracker (Groq API)
 
 # Requirements:
 # - Python 3.9+
@@ -29,7 +29,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🏈 PraisePlay AI")
-st.subheader("Analyze Sports Commentary for Positive Player Mentions")
+st.subheader("Analyze Sports Commentary for Positive Player Mentions and Game Highlights")
 st.markdown("Upload audio clips (MP3/WAV) from sports broadcasts to detect and track praise for your favorite players.")
 
 # Player input
@@ -44,19 +44,31 @@ if "total_mentions" not in st.session_state:
 if "positive_mentions" not in st.session_state:
     st.session_state.positive_mentions = 0
 
+positive_keywords = [
+    "amazing", "brilliant", "excellent", "great", "incredible", "unbelievable",
+    "fantastic", "phenomenal", "strong", "perfect", "outstanding", "dominant"
+]
+
+highlight_keywords = [
+    "touchdown", "field goal", "interception", "pass", "run", "score", "throws",
+    "catches", "breakaway", "drive", "sack", "pick"
+]
+
 def analyze_transcript(transcript, player):
     st.markdown("---")
-    st.subheader(f"📋 Transcript Snippets mentioning '{player}'")
+    st.subheader(f"📋 Notable Mentions of '{player}'")
     pattern = re.compile(rf"\b({re.escape(player)})\b", re.IGNORECASE)
     mentions = pattern.finditer(transcript)
 
     for match in mentions:
-        st.session_state.total_mentions += 1
         snippet = transcript[max(0, match.start()-100):match.end()+100]
         sentiment = sia.polarity_scores(snippet)
-        if sentiment['compound'] > 0.3:
+        is_positive = sentiment['compound'] > 0.3 or any(word in snippet.lower() for word in positive_keywords)
+
+        st.session_state.total_mentions += 1
+        if is_positive:
             st.session_state.positive_mentions += 1
-        st.markdown(f"**🎙️ Snippet:** {snippet}\n\n**📈 Sentiment:** {'Positive' if sentiment['compound'] > 0.3 else 'Neutral/Negative'}")
+        st.markdown(f"**🎙️ Snippet:** {snippet}\n\n**📈 Sentiment:** {'Positive' if is_positive else 'Neutral/Negative'}")
 
     st.markdown("---")
     st.success(f"🏆 Total Mentions of '{player}': {st.session_state.total_mentions} | Positive Mentions: {st.session_state.positive_mentions}")
@@ -71,9 +83,11 @@ def transcribe_via_groq(file_path):
     response.raise_for_status()
     return response.text
 
-def simple_extract_summary(text):
+def generate_game_summary(text):
     sentences = re.split(r'(?<=[.!?]) +', text.strip())
-    return ' '.join(sentences[:3]) if sentences else text
+    highlights = [s for s in sentences if any(k in s.lower() for k in highlight_keywords)]
+    best = sorted(highlights, key=lambda s: sia.polarity_scores(s)['compound'], reverse=True)
+    return ' '.join(best[:5]) if best else 'No highlight-worthy moments detected.'
 
 if audio_file:
     st.audio(audio_file)
@@ -86,7 +100,8 @@ if audio_file:
         os.remove(f.name)
 
     st.subheader("📝 Game Summary")
-    summary = simple_extract_summary(transcript)
+    summary = generate_game_summary(transcript)
     st.write(summary)
 
     analyze_transcript(transcript, player_name)
+
