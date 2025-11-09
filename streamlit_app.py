@@ -1,4 +1,4 @@
-# PraisePlay AI - Simplified Game Summary + Smart Mentions (Groq API)
+# PraisePlay AI - In-Depth Game Summary + Smart Mentions (Groq API)
 
 # Requirements:
 # - Python 3.9+
@@ -83,20 +83,28 @@ def transcribe_via_groq(file_path):
     response.raise_for_status()
     return response.text
 
-def generate_simple_summary(text):
-    score = 0
+def generate_detailed_summary(text):
     touchdowns = len(re.findall(r"touchdown", text, re.IGNORECASE))
     field_goals = len(re.findall(r"field goal", text, re.IGNORECASE))
     interceptions = len(re.findall(r"interception", text, re.IGNORECASE))
-    key_plays = touchdowns + field_goals + interceptions
+    big_plays = touchdowns + field_goals + interceptions
 
-    if key_plays == 0:
-        return "The game was relatively quiet with no major plays highlighted."
+    player_impact = re.findall(rf"{player_name}.*?(touchdown|pass|score|throw|run|drive|highlight)", text, re.IGNORECASE)
+    player_praise = len(player_impact)
+
+    summary = "This game showcased "
+    if big_plays > 0:
+        summary += f"a high level of intensity with {touchdowns} touchdowns, {field_goals} field goals, and {interceptions} interceptions. "
     else:
-        return (
-            f"The game featured {touchdowns} touchdowns, {field_goals} field goals, and {interceptions} interceptions. "
-            "It was an active matchup with several highlight moments."
-        )
+        summary += "a more defensive battle with fewer headline plays. "
+
+    if player_praise > 0:
+        summary += f"{player_name} had a strong presence throughout the game, drawing attention during key moments such as {player_praise} highlighted actions. "
+    else:
+        summary += f"{player_name} was mentioned but didn't dominate the commentary with standout plays. "
+
+    summary += "Overall, the broadcast captured a dynamic matchup with momentum shifts and key contributions from notable players."
+    return summary
 
 if audio_file:
     st.audio(audio_file)
@@ -109,7 +117,7 @@ if audio_file:
         os.remove(f.name)
 
     st.subheader("📝 Game Summary")
-    summary = generate_simple_summary(transcript)
+    summary = generate_detailed_summary(transcript)
     st.write(summary)
 
     analyze_transcript(transcript, player_name)
