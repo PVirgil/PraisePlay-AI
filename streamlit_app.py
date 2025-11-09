@@ -1,25 +1,18 @@
-# PraisePlay AI - Sports Commentary Tracker (Streamlit Cloud - Clean Version)
+# PraisePlay AI - Sports Commentary Tracker (Using Groq STT API)
 
 # Requirements:
 # - Python 3.9+
-# - pip install openai-whisper nltk torch streamlit
+# - pip install streamlit nltk requests
 
-import whisper
 import streamlit as st
 import os
 import re
 import tempfile
+import requests
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 
 nltk.download('vader_lexicon')
-
-# Load Whisper Model
-@st.cache_resource
-def load_model():
-    return whisper.load_model("base")
-
-model = load_model()
 
 # Load Sentiment Analyzer
 sia = SentimentIntensityAnalyzer()
@@ -37,13 +30,13 @@ st.markdown("""
 
 st.title("🏈 PraisePlay AI")
 st.subheader("Analyze Sports Commentary for Positive Player Mentions")
-st.markdown("Upload audio clips (WAV only) from sports broadcasts to detect and track praise for your favorite players.")
+st.markdown("Upload audio clips (MP3/WAV) from sports broadcasts to detect and track praise for your favorite players.")
 
 # Player input
 player_name = st.text_input("🔍 Enter Player's Name to Track", "Patrick Mahomes")
 
 # Audio upload
-audio_file = st.file_uploader("🎧 Upload a WAV Audio Clip", type=["wav"])
+audio_file = st.file_uploader("🎧 Upload an Audio Clip (MP3/WAV)", type=["mp3", "wav"])
 
 # State variables
 if "total_mentions" not in st.session_state:
@@ -68,17 +61,27 @@ def analyze_transcript(transcript, player):
     st.markdown("---")
     st.success(f"🏆 Total Mentions of '{player}': {st.session_state.total_mentions} | Positive Mentions: {st.session_state.positive_mentions}")
 
+def transcribe_via_groq(file_path):
+    api_key = st.secrets["GROQ_API_KEY"]
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    files = {"file": open(file_path, "rb")}
+    data = {"model": "whisper-large-v3-turbo", "response_format": "text"}
+    response = requests.post(url, headers=headers, files=files, data=data)
+    response.raise_for_status()
+    return response.text
+
 if audio_file:
     st.audio(audio_file)
-    st.info("Transcribing audio... please wait.")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+    st.info("Transcribing audio via Groq API... please wait.")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio_file.type.split('/')[-1]}") as f:
         f.write(audio_file.read())
         f.flush()
-        result = model.transcribe(f.name)
-        transcript = result["text"]
+        transcript = transcribe_via_groq(f.name)
         os.remove(f.name)
 
     st.subheader("📝 Transcript")
     st.write(transcript)
 
     analyze_transcript(transcript, player_name)
+
