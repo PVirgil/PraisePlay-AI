@@ -1,4 +1,4 @@
-# PraisePlay AI - Sports Commentary Tracker (Groq API Only)
+# PraisePlay AI - Sports Commentary Tracker (Groq API + Summary View Without OpenAI)
 
 # Requirements:
 # - Python 3.9+
@@ -71,6 +71,10 @@ def transcribe_via_groq(file_path):
     response.raise_for_status()
     return response.text
 
+def simple_extract_summary(text):
+    sentences = re.split(r'(?<=[.!?]) +', text.strip())
+    return ' '.join(sentences[:3]) if sentences else text
+
 if audio_file:
     st.audio(audio_file)
     st.info("Transcribing audio via Groq API... please wait.")
@@ -81,9 +85,8 @@ if audio_file:
         transcript = transcribe_via_groq(f.name)
         os.remove(f.name)
 
-    st.subheader("📝 Transcript")
-    st.write(transcript)
+    st.subheader("📝 Game Summary")
+    summary = simple_extract_summary(transcript)
+    st.write(summary)
 
     analyze_transcript(transcript, player_name)
-
-
